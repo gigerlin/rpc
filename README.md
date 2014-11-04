@@ -27,7 +27,7 @@ remote.getUserProfile('gilles', function(user, err){
   else
     console.log("name: " + user.name + " age: " + user.age);
 });
-`
+```
 ### Side B ###
 
 Obviously, we need a function to implement the *getUserProfile* requested on side A.
@@ -85,16 +85,16 @@ var io = require('socket.io');
 var ioB = io(4141);
 ioB.on('connection', function(socket) {
   console.log("NEW connection");
-  sideB = new rpc.ioRpc(socket);
+  var sideB = new rpc.ioRpc(socket);
   sideB.implement(local);
 }); 
 ```
 
 ### Miscellaneous ###
 
-rpc accepts passing any number of arguments to the remote object. If a callback is needed, the callback must the last (or the only one) argument (see example above).
+avs-rpc accepts passing any number of arguments to the remote object. If a callback is needed, the callback must the last (or the only one) argument (see example above).
 
-The local object in the example may be used to publish for several functions, e.g.:
+The local object in the example may be used to publish several functions, e.g.:
 ```js
 var local = {}; // interface declaration
 local.getUserProfile = getUserProfile;
@@ -102,7 +102,7 @@ local.getUserProfile = getUserList;
 etc...
 ```
 
-### Error handling best practices ###
+### Error handling ###
 rpc callbacks receive two arguments: a return value and an error value *(result, error)*. If the error value is not undefined, it contains the error message and in this case the return value is undefined (see example above).
 
 ## License ##
