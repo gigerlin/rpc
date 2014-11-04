@@ -35,7 +35,7 @@ Obviously, we need a function to implement the *getUserProfile* requested on sid
 function getUserProfile(name) { return {name:name, age:32}; }
 ```
 
-We need now to make this function available to side A. This is done by creating an object to hold the interface to the functions to publish, and by linking this object to the side B rpc object.
+We need now to make this function available to side A. This is done by creating an object to hold the interface (to the functions to publish), and by linking this object to the side B rpc object.
 
 ```js
 var local = {};
@@ -55,8 +55,13 @@ The rpc objects we created on both sides expect that we define a way to transpor
 sideA.out(function(msg) { sideB.process(msg); });
 sideB.out(function(msg) { sideA.process(msg); });
 ```
+
+However, it is rather meant to be used with network transport. Next section describes how to use socket.io. 
+
 ### socket.io ###
-The avs-rpc package supports the socket.io library through the ioRpc class.
+The avs-rpc package supports the socket.io library through the ioRpc class (cf. http://socket.io/).
+
+Below is a complete example.
 
 #### Side A ####
 
@@ -92,18 +97,36 @@ ioB.on('connection', function(socket) {
 
 ### Miscellaneous ###
 
-avs-rpc accepts passing any number of arguments to the remote object. If a callback is needed, the callback must the last (or the only one) argument (see example above).
+avs-rpc accepts passing any number of arguments to the remote object (as long as they can be JSON stringified). 
+If a callback is needed, the callback must be the last (or the only one) argument (see example above).
 
 The local object in the example may be used to publish several functions, e.g.:
 ```js
 var local = {}; // interface declaration
 local.getUserProfile = getUserProfile;
 local.getUserProfile = getUserList;
-etc...
+...
+sideB.implement(local);
 ```
 
+Local functions can be synchronous, meaning that the value returned is implicitly sent back to the caller, or asynchronous. For asynchronous functions, a callback is provided by avs-rpc so that the function result can be sent back to the caller.
+
+Example: use of *implementAsync*
+```js
+function getUserList(callback) { 
+  //build list of users...
+  callback(list); // send back the list when it is ready
+  //do other stuff
+}
+
+var local = {}; // interface declaration
+local.getUserProfile = getUserList;
+sideB.implementAsync(local);
+```
+
+
 ### Error handling ###
-rpc callbacks receive two arguments: a return value and an error value *(result, error)*. If the error value is not undefined, it contains the error message and in this case the return value is undefined (see example above).
+rpc callbacks receive two arguments: a return value and an error value *(result, error)*. If the error value is not undefined, it contains the error message and in this case the return value is undefined (see first example on top of the page).
 
 ## License ##
 

@@ -1,0 +1,28 @@
+{
+  "author": {
+    "name": "Gilles Gerlinger",
+    "email": "gilles.gerlinger@gmail.com"
+  },
+  "name": "avs-rpc",
+  "description": "RPC for Node.js",
+  "version": "0.0.4",
+  "homepage": "https://github.com/gigerlin/rpc",
+  "contributors": [
+    {
+      "name": "Gilles Gerlinger",
+      "email": "gilles.gerlinger@gmail.com"
+    }
+  ],
+  "keywords": [
+    "RPC"
+  ],
+  "main": "./rpc.js",
+  "dependencies": {},
+  "devDependencies": {
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=0.6"
+  },
+  "readmeFilename": "README.md" 
+}

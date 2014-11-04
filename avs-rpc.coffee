@@ -4,12 +4,14 @@
 ###
 
 class Local
+  ### Internal class ###
   constructor: (@local, method, @asynchronous) ->
     @[method] = (args, cb) => 
       console.log "rpc local: #{method}"
       @local[method] args..., cb
 
 class Remote
+  ### Internal class ###
   count:0
   constructor: (@rpc, methods) ->
     @uid = (Math.random() + '').substring 2, 8
@@ -24,13 +26,18 @@ class Remote
 # calls any number of arguments (string, number or object), plus a callback (callback is the last arg)
 #
 exports.Rpc = class Rpc 
+  ### Main class: see README.md for information. ###
   cbID:0
   constructor: -> 
     @locals = [] 
     @callbacks = []
     @_out = (msg, message) => @log "rpc #{msg.id} error: no rpc out route defined"
 
-  out: (send) -> @_out = send
+  out: (send) ->
+    ### *send* is a function that takes 2 parameters which are the 2 formats of the message to send: 
+    as a JSON object and as a stringified object.
+    ###
+    @_out = send
   
   _request: (msg) -> # call remote proc
     if msg.cb and typeof msg.cb is 'function'
@@ -45,7 +52,8 @@ exports.Rpc = class Rpc
   _reply: (msg, args) -> @_request method:msg.cb, args:args, id:msg.id if msg.cb # simple alias
   _error: (msg, args) -> @_request method:msg.cb, args:args, err:true, id:msg.id if msg.cb
 
-  process: (message) -> # execute local method upon remote request
+  process: (message) -> 
+    ### execute local method upon remote request (the request being in the *message*). ###
     try
       if typeof message is 'string'
         msg = JSON.parse message
@@ -84,7 +92,9 @@ exports.Rpc = class Rpc
       @log args = "error in #{msg.method}: #{e}"
       @_error msg, args
 
-  remote: (methods) -> new Remote @, @_format methods
+  remote: (methods) -> 
+    ### Returns a new remote object implementing the *methods* ###
+    new Remote @, @_format methods
   _expose: (local, methods, asynchronous) -> # locally checkings can be performed
     unless methods
       methods = []
@@ -98,12 +108,24 @@ exports.Rpc = class Rpc
       else 
         @locals[method] = new Local local, method, asynchronous
 
-  implement: (local, methods) -> @_expose local, methods, false
-  implementAsync: (local, methods) -> @_expose local, methods, true
+  implement: (local, methods) -> 
+    ### Publish the *methods* of *local*. Those *methods* are now available to the rpc object 
+        The *methods* are synchronous: the value they returned is sent back. 
+    ###
+    @_expose local, methods, false
+  implementAsync: (local, methods) -> 
+    ### Publish the *methods* of *local*. Those *methods* are now available to the rpc object 
+        The *methods* are asynchronous: a callback is passed to these methods to sent back results.
+    ###
+    @_expose local, methods, true
 
   _format: (methods) -> if typeof methods is 'string' then [methods] else methods
 
-  log: (text) -> console.log if text.length < 128 then text else text.substring(0, 127) + ' ...'
+  log: (text) ->
+    ### Console log messages going in to be processed and going out.
+    This method can be overloaded to disable or customize logging. 
+    ###
+    console.log if text.length < 128 then text else text.substring(0, 127) + ' ...'
 
 #
 # Transports: ws, http, socket.io
@@ -136,7 +158,11 @@ exports.xmlHttpRpc = class xmlHttpRpc extends Rpc # not tested...
       xhr.send message
 
 exports.ioRpc = class ioRpc extends Rpc
+  ### RPC extension that supports socket.io ###
+
   constructor: (socket) ->
+    ### *socket* is a valid socket.io socket ###
+
     super()
     if socket 
       @out (msg, message) -> socket.emit 'rpc', msg
