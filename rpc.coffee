@@ -5,71 +5,96 @@
 
 class Local
   constructor: (@local, method, @asynchronous) ->
-    @[method] = new Function "args, cb", "return this.local['#{method}'](args, cb);"
+    @[method] = (args, cb) => 
+      console.log "rpc local: #{method}"
+      @local[method] args..., cb
 
 class Remote
+  count:0
   constructor: (@rpc, methods) ->
+    @uid = (Math.random() + '').substring 2, 8
     for method in methods
-      @[method] = new Function "args, cb", 
-        "if (arguments.length === 1 && typeof args === 'function') { cb = args; args = null}; return this.rpc._request('#{method}', args, cb);"
+      @[method] = new Function "", "var arg, args, cb, last, _i, _len; args = [];
+        for (_i = 0, _len = arguments.length; _i < _len; _i++) { args.push(arguments[_i]); }
+        last = arguments[arguments.length - 1];
+        if (typeof last === 'function') { cb = last; args.pop()}
+        return this.rpc._request({method:'#{method}', args:args, cb:cb, id:'#{this.uid}-'+(++this.count)});"
 
 #
-# calls with 0 or one parameter (string, number or object), plus a callback
+# calls any number of arguments (string, number or object), plus a callback (callback is the last arg)
 #
 exports.Rpc = class Rpc 
-
-  constructor: -> @id = 0; @locals = []; @callbacks = []
+  cbID:0
+  constructor: -> 
+    @locals = [] 
+    @callbacks = []
+    @_out = (msg, message) => @log "rpc #{msg.id} error: no rpc out route defined"
 
   out: (send) -> @_out = send
   
-  _request: (method, args, cb, err) -> # call remote proc
+  _request: (msg) -> # call remote proc
+    if msg.cb and typeof msg.cb is 'function'
+      @callbacks[cbname = msg.method + " cb#{@cbID++}"] = msg.cb
+      msg.cb = cbname
 
-    message = method:method, args:args, err:err
-    if cb and typeof cb is 'function'
-      @callbacks[cbname = method + " cb#{@id++}"] = cb
-      message.cb = cbname
-
-    message = JSON.stringify message
-    if @_out
-      @log "rpc out #{message}" 
-      @_out message 
-    else
-      @log "no rpc out route defined"
+    message = JSON.stringify msg
+    @log "rpc #{msg.id}: out #{message}" 
+    @_out msg, message # provide both formats: object and stringified
     return message
 
-  reply: (method, args) -> @_request method, args if method # simple alias
-  error: (method, args) -> @_request method, args, undefined, true if method
+  _reply: (msg, args) -> @_request method:msg.cb, args:args, id:msg.id if msg.cb # simple alias
+  _error: (msg, args) -> @_request method:msg.cb, args:args, err:true, id:msg.id if msg.cb
 
   process: (message) -> # execute local method upon remote request
-    @log "rpc in  #{message}"  
     try
-      obj = JSON.parse message
-      local = @locals[obj.method]
+      if typeof message is 'string'
+        msg = JSON.parse message
+      else
+        msg = message
+        message = JSON.stringify msg
+
+      unless msg and msg.method
+        @log args = "rpc error: message is null"
+        @_error method:'missing', args
+        return
+
+      local = @locals[msg.method]
+      @log "rpc #{msg.id}: in  #{message}"  
       if local
-        rst = local[obj.method] obj.args, obj.cb
-        @reply obj.cb, rst unless local.asynchronous
-      else if @callbacks[obj.method]
-        if obj.err
-          @callbacks[obj.method] undefined, obj.args
+        unless local.asynchronous
+          @_reply msg, local[msg.method] msg.args
+        else 
+          if msg.cb
+            #@log "rpc #{msg.id}: creating callback #{msg.cb}"
+            cb = (rst, err) => 
+              #@log "rpc #{msg.id}: executing callback #{msg.cb}, error: #{err}"
+              if err then @_error msg, err else @_reply msg, rst
+          if msg.args then local[msg.method] msg.args, cb else local[msg.method] cb
+
+      else if @callbacks[msg.method]
+        if msg.err
+          @callbacks[msg.method] undefined, msg.args # callback accepts an error (rst, err)
         else
-          @callbacks[obj.method] obj.args
-        delete @callbacks[obj.method]
+          @callbacks[msg.method] msg.args
+        delete @callbacks[msg.method]
       else 
-        message = "error: method #{obj.method} is unknown"
-        @log message
-        @error obj.cb, message
+        @log args = "error: method #{msg.method} is unknown"
+        @_error msg, args
     catch e
-      message = "error in #{obj.method}: #{e}"
-      @log message
-      @error obj.cb, "error in #{obj.method}: #{e}"
+      @log args = "error in #{msg.method}: #{e}"
+      @_error msg, args
 
   remote: (methods) -> new Remote @, @_format methods
   _expose: (local, methods, asynchronous) -> # locally checkings can be performed
+    unless methods
+      methods = []
+      for method in Object.keys local
+        methods.push method if typeof local[method] is 'function'
     for method in @_format methods
       unless local[method]
-        @log "warning: object #{local} has no method #{method}"
+        @log "rpc warning: local object has no method #{method}"
       else if @locals[method]
-        @log "warning: duplicate method #{method}"       
+        @log "rpc warning: duplicate method #{method}"       
       else 
         @locals[method] = new Local local, method, asynchronous
 
@@ -80,10 +105,13 @@ exports.Rpc = class Rpc
 
   log: (text) -> console.log if text.length < 128 then text else text.substring(0, 127) + ' ...'
 
+#
+# Transports: ws, http, socket.io
+#
 exports.wsRpc = class wsRpc extends Rpc
   constructor: (ws) -> # for convenience purpose
     super()
-    if ws and ws.send then @out (msg) -> ws.send msg, (err) => @log err.toString() if err
+    if ws and ws.send then @out (msg, message) -> ws.send message, (err) => @log err.toString() if err
     @in ws
 
   in:  (ws) -> # for convenience purpose
@@ -92,3 +120,24 @@ exports.wsRpc = class wsRpc extends Rpc
         ws.on 'message', (message, flags) => @process message unless flags.binary
       else
         ws.onmessage = (e) => @process e.data if e.data.length
+
+exports.angularRpc = class angularRpc extends Rpc
+  constructor: (http) ->
+    super()
+    @out (msg, message) -> http.post('/rpc', msg).success (message) => @process message if message
+
+exports.xmlHttpRpc = class xmlHttpRpc extends Rpc # not tested...
+  constructor: (xhr) ->
+    super()
+    @out (msg, message) ->
+      xhr.open 'POST', '/rpc', true
+      xhr.setRequestHeader 'Content-type', 'application/json'
+      xhr.onload => @process xhr.response # or responseText
+      xhr.send message
+
+exports.ioRpc = class ioRpc extends Rpc
+  constructor: (socket) ->
+    super()
+    if socket 
+      @out (msg, message) -> socket.emit 'rpc', msg
+      socket.on 'rpc', (msg) => @process msg
