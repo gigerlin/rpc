@@ -5,7 +5,7 @@
   },
   "name": "avs-rpc",
   "description": "RPC for Node.js",
-  "version": "0.0.4",
+  "version": "0.1.7",
   "homepage": "https://github.com/gigerlin/rpc",
   "contributors": [
     {
@@ -17,7 +17,9 @@
     "RPC"
   ],
   "main": "./rpc.js",
-  "dependencies": {},
+  "dependencies": {
+    "circular-json" : ">=0.1.6"
+  },
   "devDependencies": {
   },
   "license": "MIT",
