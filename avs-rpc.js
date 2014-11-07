@@ -6,19 +6,21 @@
  */
 
 (function() {
-  var Local, Remote, Rpc, angularRpc, ioRpc, wsRpc, xmlHttpRpc,
+  var Local, Remote, Rpc, angularRpc, ioRpc, json, wsRpc, xmlHttpRpc,
     __slice = [].slice,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+
+  json = require('circular-json');
 
   Local = (function() {
     function Local(local, method, asynchronous) {
       this.local = local;
       this.asynchronous = asynchronous;
       this[method] = (function(_this) {
-        return function(args, cb) {
+        return function(id, args, cb) {
           var _ref;
-          console.log("rpc local: " + method);
+          console.log("rpc " + id + ": local " + method + " - asynchronous: " + _this.asynchronous);
           return (_ref = _this.local)[method].apply(_ref, __slice.call(args).concat([cb]));
         };
       })(this);
@@ -31,8 +33,9 @@
   Remote = (function() {
     Remote.prototype.count = 0;
 
-    function Remote(rpc, methods) {
-      var method, _i, _len;
+    function Remote() {
+      var method, methods, rpc, _i, _len;
+      rpc = arguments[0], methods = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
       this.rpc = rpc;
       this.uid = (Math.random() + '').substring(2, 8);
       for (_i = 0, _len = methods.length; _i < _len; _i++) {
@@ -68,7 +71,7 @@
         this.callbacks[cbname = msg.method + (" cb" + (this.cbID++))] = msg.cb;
         msg.cb = cbname;
       }
-      message = JSON.stringify(msg);
+      message = json.stringify(msg);
       this.log("rpc " + msg.id + ": out " + message);
       this._out(msg, message);
       return message;
@@ -96,13 +99,12 @@
     };
 
     Rpc.prototype.process = function(message) {
-      var args, cb, e, local, msg;
+      var args, e, err, local, msg, rst;
       try {
         if (typeof message === 'string') {
-          msg = JSON.parse(message);
+          msg = json.parse(message);
         } else {
-          msg = message;
-          message = JSON.stringify(msg);
+          message = json.stringify(msg = message);
         }
         if (!(msg && msg.method)) {
           this.log(args = "rpc error: message is null");
@@ -114,32 +116,26 @@
         local = this.locals[msg.method];
         this.log("rpc " + msg.id + ": in  " + message);
         if (local) {
-          if (!local.asynchronous) {
-            return this._reply(msg, local[msg.method](msg.args));
+          if (local.asynchronous) {
+            return local[msg.method](msg.id, msg.args, (function(_this) {
+              return function(rst, err) {
+                if (err) {
+                  return _this._error(msg, err);
+                } else {
+                  return _this._reply(msg, rst);
+                }
+              };
+            })(this));
           } else {
-            if (msg.cb) {
-              cb = (function(_this) {
-                return function(rst, err) {
-                  if (err) {
-                    return _this._error(msg, err);
-                  } else {
-                    return _this._reply(msg, rst);
-                  }
-                };
-              })(this);
-            }
-            if (msg.args) {
-              return local[msg.method](msg.args, cb);
-            } else {
-              return local[msg.method](cb);
-            }
+            return this._reply(msg, local[msg.method](msg.id, msg.args));
           }
         } else if (this.callbacks[msg.method]) {
           if (msg.err) {
-            this.callbacks[msg.method](void 0, msg.args);
+            err = msg.args;
           } else {
-            this.callbacks[msg.method](msg.args);
+            rst = msg.args;
           }
+          this.callbacks[msg.method](rst, err);
           return delete this.callbacks[msg.method];
         } else {
           this.log(args = "error: method " + msg.method + " is unknown");
@@ -152,51 +148,62 @@
       }
     };
 
-    Rpc.prototype.remote = function(methods) {
-      return new Remote(this, this._format(methods));
+    Rpc.prototype._splat = function() {
+      var args;
+      args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+      if (arguments.length === 1 && typeof arguments[0] !== 'string') {
+        return arguments[0];
+      } else {
+        return args;
+      }
     };
 
-    Rpc.prototype._expose = function(local, methods, asynchronous) {
-      var method, _i, _j, _len, _len1, _ref, _ref1, _results;
-      if (!methods) {
-        methods = [];
-        _ref = Object.keys(local);
-        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-          method = _ref[_i];
-          if (typeof local[method] === 'function') {
+    Rpc.prototype.remote = function() {
+      var methods;
+      methods = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+      return (function(func, args, ctor) {
+        ctor.prototype = func.prototype;
+        var child = new ctor, result = func.apply(child, args);
+        return Object(result) === result ? result : child;
+      })(Remote, [this].concat(__slice.call(this._splat.apply(this, methods))), function(){});
+    };
+
+    Rpc.prototype.implement = function() {
+      var local, methods;
+      local = arguments[0], methods = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+      return this._expose.apply(this, [local, false].concat(__slice.call(this._splat.apply(this, methods))));
+    };
+
+    Rpc.prototype.implementAsync = function() {
+      var local, methods;
+      local = arguments[0], methods = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+      return this._expose.apply(this, [local, true].concat(__slice.call(this._splat.apply(this, methods))));
+    };
+
+    Rpc.prototype._expose = function() {
+      var asynchronous, local, method, methods, _i, _len, _results;
+      local = arguments[0], asynchronous = arguments[1], methods = 3 <= arguments.length ? __slice.call(arguments, 2) : [];
+      if (!methods.length) {
+        for (method in local) {
+          if (typeof local[method] === 'function' && method.charAt(0) !== '_') {
             methods.push(method);
           }
         }
+        this.log("rpc methods found: " + methods);
       }
-      _ref1 = this._format(methods);
       _results = [];
-      for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
-        method = _ref1[_j];
+      for (_i = 0, _len = methods.length; _i < _len; _i++) {
+        method = methods[_i];
         if (!local[method]) {
           _results.push(this.log("rpc warning: local object has no method " + method));
-        } else if (this.locals[method]) {
-          _results.push(this.log("rpc warning: duplicate method " + method));
         } else {
+          if (this.locals[method]) {
+            this.log("rpc warning: duplicate method " + method + ", now asynchronous: " + asynchronous);
+          }
           _results.push(this.locals[method] = new Local(local, method, asynchronous));
         }
       }
       return _results;
-    };
-
-    Rpc.prototype.implement = function(local, methods) {
-      return this._expose(local, methods, false);
-    };
-
-    Rpc.prototype.implementAsync = function(local, methods) {
-      return this._expose(local, methods, true);
-    };
-
-    Rpc.prototype._format = function(methods) {
-      if (typeof methods === 'string') {
-        return [methods];
-      } else {
-        return methods;
-      }
     };
 
     Rpc.prototype.log = function(text) {

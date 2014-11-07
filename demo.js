@@ -4,7 +4,7 @@ var rpc = require('./avs-rpc');
 
 var sideA = new rpc.Rpc;
 
-var remote = sideA.remote(['getUserProfile', 'getUserList']);
+var remote = sideA.remote('getUserProfile', 'getUserList');
 
 // side B
 

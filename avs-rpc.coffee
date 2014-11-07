@@ -6,13 +6,13 @@ json = require 'circular-json'
 
 class Local
   constructor: (@local, method, @asynchronous) ->
-    @[method] = (args, cb) => 
-      console.log "rpc local: #{method}"
+    @[method] = (id, args, cb) => 
+      console.log "rpc #{id}: local #{method} - asynchronous: #{@asynchronous}"
       @local[method] args..., cb
 
 class Remote
   count:0
-  constructor: (@rpc, methods) ->
+  constructor: (@rpc, methods...) ->
     @uid = (Math.random() + '').substring 2, 8
     for method in methods
       @[method] = new Function "", "var arg, args, cb, last, _i, _len; args = [];
@@ -43,15 +43,12 @@ exports.Rpc = class Rpc
     @_out msg, message # provide both formats: object and stringified
     return message
 
-  _reply: (msg, args) -> @_request method:msg.cb, args:args, id:msg.id if msg.cb # simple alias
-  _error: (msg, args) -> @_request method:msg.cb, args:args, err:true, id:msg.id if msg.cb
+  _reply: (msg, args) -> @_request method:msg.cb, args:args, id:msg.id if msg.cb            # simple alias
+  _error: (msg, args) -> @_request method:msg.cb, args:args, err:true, id:msg.id if msg.cb  # simple alias
 
   process: (message) -> # execute local method upon remote request
     try
-      if typeof message is 'string'
-        msg = json.parse message
-      else
-        message = json.stringify msg = message
+      if typeof message is 'string' then msg = json.parse message else message = json.stringify msg = message
 
       unless msg and msg.method
         @log args = "rpc error: message is null"
@@ -60,23 +57,19 @@ exports.Rpc = class Rpc
 
       local = @locals[msg.method]
       @log "rpc #{msg.id}: in  #{message}"  
-      if local
-        unless local.asynchronous
-          @_reply msg, local[msg.method] msg.args
-        else 
-          if msg.cb
-            #@log "rpc #{msg.id}: creating callback #{msg.cb}"
-            cb = (rst, err) => 
-              #@log "rpc #{msg.id}: executing callback #{msg.cb}, error: #{err}"
-              if err then @_error msg, err else @_reply msg, rst
-          if msg.args then local[msg.method] msg.args, cb else local[msg.method] cb
 
-      else if @callbacks[msg.method]
-        if msg.err
-          @callbacks[msg.method] undefined, msg.args # callback accepts an error (rst, err)
-        else
-          @callbacks[msg.method] msg.args
+      if local # LOCAL
+        if local.asynchronous # provide a callback
+          local[msg.method] msg.id, msg.args, (rst, err) => 
+            if err then @_error msg, err else @_reply msg, rst
+        else # send back the returned value
+          @_reply msg, local[msg.method] msg.id, msg.args
+
+      else if @callbacks[msg.method] # CALLBACK
+        if msg.err then err = msg.args else rst = msg.args 
+        @callbacks[msg.method] rst, err
         delete @callbacks[msg.method]
+
       else 
         @log args = "error: method #{msg.method} is unknown"
         @_error msg, args
@@ -84,24 +77,24 @@ exports.Rpc = class Rpc
       @log args = "error in #{msg.method}: #{e}"
       @_error msg, args
 
-  remote: (methods) -> new Remote @, @_format methods
-  _expose: (local, methods, asynchronous) -> # locally checkings can be performed
-    unless methods
-      methods = []
-      for method in Object.keys local
-        methods.push method if typeof local[method] is 'function'
-    for method in @_format methods
+  _splat: (args...) -> 
+    if arguments.length is 1 and typeof arguments[0] isnt 'string' then arguments[0] else args # for compatibility reasons
+
+  remote: (methods...) -> new Remote @, @_splat(methods...)...
+
+  implement: (local, methods...) -> @_expose local, false, @_splat(methods...)...
+  implementAsync: (local, methods...) -> @_expose local, true, @_splat(methods...)...
+  _expose: (local, asynchronous, methods...) -> 
+    unless methods.length # inspect the local object if no methods are provided
+      for method of local
+        methods.push method if typeof local[method] is 'function' and method.charAt(0) isnt '_' # discard private methods
+      @log "rpc methods found: #{methods}"
+    for method in methods
       unless local[method]
         @log "rpc warning: local object has no method #{method}"
-      else if @locals[method]
-        @log "rpc warning: duplicate method #{method}"       
-      else 
+      else
+        @log "rpc warning: duplicate method #{method}, now asynchronous: #{asynchronous}" if @locals[method]
         @locals[method] = new Local local, method, asynchronous
-
-  implement: (local, methods) -> @_expose local, methods, false
-  implementAsync: (local, methods) -> @_expose local, methods, true
-
-  _format: (methods) -> if typeof methods is 'string' then [methods] else methods
 
   log: (text) -> console.log if text.length < 128 then text else text.substring(0, 127) + ' ...'
 
