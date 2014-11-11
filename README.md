@@ -9,6 +9,12 @@ Elegant Javascript RPC mechanism.
 npm install avs-rpc
 ```
 
+In browser:
+
+```html
+<script src=".../avs-rpc.min.js"></script>
+```
+
 ## Usage ##
 
 Side A needs side B to do some stuff...
@@ -96,6 +102,17 @@ ioB.on('connection', function(socket) {
   var sideB = new rpc.ioRpc(socket);
   sideB.implement(local);
 }); 
+```
+
+### Browser ###
+
+The UMD bundle name of the minified library is *avs*. To use a RPC class from the library, the name of the class is prefixed with *avs*.
+
+Example:
+
+```js
+socket = io('http://localhost:4141');
+rpc = new avs.ioRpc(socket);
 ```
 
 ### Miscellaneous ###
