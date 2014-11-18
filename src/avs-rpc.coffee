@@ -128,9 +128,30 @@ exports.xmlHttpRpc = class xmlHttpRpc extends Rpc # not tested...
       xhr.onload => @process xhr.response # or responseText
       xhr.send message
 
-exports.ioRpc = class ioRpc extends Rpc
-  constructor: (socket) ->
-    super()
-    if socket 
-      @out (msg, message) -> socket.emit 'rpc', msg
-      socket.on 'rpc', (msg) => @process msg
+#
+# class ioRpc extends Rpc to inherit remote and implement methods
+#
+exports.ioRpc = class ioRpc extends Rpc # inspired from minimum-rpc
+  constructor: (@socket) -> 
+    @locals = []
+    if @socket then @socket.on 'rpc', (message, ack_cb) => @process message, ack_cb
+
+  _request: (msg) ->
+    console.log "rpc #{msg.id}: out #{message = json.stringify msg}"
+    cb = msg.cb or ->  
+    if @socket then @socket.emit 'rpc', message, -> cb.apply @, arguments
+
+  process: (message, ack_cb) ->
+    msg = json.parse message
+    @log "rpc #{msg.id}: in  #{message}"  
+    local = @locals[msg.method]
+
+    if local
+      try
+        args = msg.args or []
+        args.push => ack_cb.apply @, arguments
+        if local.asynchronous then local[msg.method] msg.id, args else ack_cb local[msg.method] msg.id, args
+      catch e
+        ack_cb null, "error in #{msg.method}: #{e}"
+    else
+        ack_cb null, "error: method #{msg.method} is unknown"

@@ -4,8 +4,8 @@
     "email": "gilles.gerlinger@gmail.com"
   },
   "name": "avs-rpc",
-  "description": "RPC for Node.js",
-  "version": "0.1.9",
+  "description": "Elegant RPC for Node.js and browsers",
+  "version": "0.1.11",
   "homepage": "https://github.com/gigerlin/rpc",
   "contributors": [
     {
@@ -14,7 +14,7 @@
     }
   ],
   "keywords": [
-    "RPC"
+    "RPC", "coffeescript", "remote"
   ],
   "main": "./rpc.js",
   "dependencies": {

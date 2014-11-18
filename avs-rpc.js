@@ -304,18 +304,54 @@
     __extends(ioRpc, _super);
 
     function ioRpc(socket) {
-      ioRpc.__super__.constructor.call(this);
-      if (socket) {
-        this.out(function(msg, message) {
-          return socket.emit('rpc', msg);
-        });
-        socket.on('rpc', (function(_this) {
-          return function(msg) {
-            return _this.process(msg);
+      this.socket = socket;
+      this.locals = [];
+      if (this.socket) {
+        this.socket.on('rpc', (function(_this) {
+          return function(message, ack_cb) {
+            return _this.process(message, ack_cb);
           };
         })(this));
       }
     }
+
+    ioRpc.prototype._request = function(msg) {
+      var cb, message;
+      console.log("rpc " + msg.id + ": out " + (message = json.stringify(msg)));
+      cb = msg.cb || function() {};
+      if (this.socket) {
+        return this.socket.emit('rpc', message, function() {
+          return cb.apply(this, arguments);
+        });
+      }
+    };
+
+    ioRpc.prototype.process = function(message, ack_cb) {
+      var args, e, local, msg;
+      msg = json.parse(message);
+      this.log("rpc " + msg.id + ": in  " + message);
+      local = this.locals[msg.method];
+      if (local) {
+        try {
+          args = msg.args || [];
+          args.push((function(_this) {
+            return function() {
+              return ack_cb.apply(_this, arguments);
+            };
+          })(this));
+          if (local.asynchronous) {
+            return local[msg.method](msg.id, args);
+          } else {
+            return ack_cb(local[msg.method](msg.id, args));
+          }
+        } catch (_error) {
+          e = _error;
+          return ack_cb(null, "error in " + msg.method + ": " + e);
+        }
+      } else {
+        return ack_cb(null, "error: method " + msg.method + " is unknown");
+      }
+    };
 
     return ioRpc;
 
