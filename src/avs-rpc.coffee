@@ -137,7 +137,7 @@ exports.ioRpc = class ioRpc extends Rpc # inspired from minimum-rpc
     if @socket then @socket.on @tag, (message, ack_cb) => @process message, ack_cb
 
   _request: (msg) ->
-    console.log "rpc #{msg.id}: out #{@tag} #{message = json.stringify msg}"
+    @log "rpc #{msg.id}: out #{@tag} #{message = json.stringify msg}"
     cb = msg.cb or ->  
     if @socket then @socket.emit @tag, message, -> cb.apply @, arguments
 
