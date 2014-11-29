@@ -132,18 +132,18 @@ exports.xmlHttpRpc = class xmlHttpRpc extends Rpc # not tested...
 # class ioRpc extends Rpc to inherit remote and implement methods
 #
 exports.ioRpc = class ioRpc extends Rpc # inspired from minimum-rpc
-  constructor: (@socket) -> 
+  constructor: (@socket, @tag = 'rpc') -> 
     @locals = []
-    if @socket then @socket.on 'rpc', (message, ack_cb) => @process message, ack_cb
+    if @socket then @socket.on @tag, (message, ack_cb) => @process message, ack_cb
 
   _request: (msg) ->
-    console.log "rpc #{msg.id}: out #{message = json.stringify msg}"
+    console.log "rpc #{msg.id}: out #{@tag} #{message = json.stringify msg}"
     cb = msg.cb or ->  
-    if @socket then @socket.emit 'rpc', message, -> cb.apply @, arguments
+    if @socket then @socket.emit @tag, message, -> cb.apply @, arguments
 
   process: (message, ack_cb) ->
     msg = json.parse message
-    @log "rpc #{msg.id}: in  #{message}"  
+    @log "rpc #{msg.id}: in  #{@tag} #{message}"  
     local = @locals[msg.method]
 
     if local

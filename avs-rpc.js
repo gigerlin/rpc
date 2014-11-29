@@ -303,11 +303,12 @@
   exports.ioRpc = ioRpc = (function(_super) {
     __extends(ioRpc, _super);
 
-    function ioRpc(socket) {
+    function ioRpc(socket, tag) {
       this.socket = socket;
+      this.tag = tag != null ? tag : 'rpc';
       this.locals = [];
       if (this.socket) {
-        this.socket.on('rpc', (function(_this) {
+        this.socket.on(this.tag, (function(_this) {
           return function(message, ack_cb) {
             return _this.process(message, ack_cb);
           };
@@ -317,10 +318,10 @@
 
     ioRpc.prototype._request = function(msg) {
       var cb, message;
-      console.log("rpc " + msg.id + ": out " + (message = json.stringify(msg)));
+      console.log("rpc " + msg.id + ": out " + this.tag + " " + (message = json.stringify(msg)));
       cb = msg.cb || function() {};
       if (this.socket) {
-        return this.socket.emit('rpc', message, function() {
+        return this.socket.emit(this.tag, message, function() {
           return cb.apply(this, arguments);
         });
       }
@@ -329,7 +330,7 @@
     ioRpc.prototype.process = function(message, ack_cb) {
       var args, e, local, msg;
       msg = json.parse(message);
-      this.log("rpc " + msg.id + ": in  " + message);
+      this.log("rpc " + msg.id + ": in  " + this.tag + " " + message);
       local = this.locals[msg.method];
       if (local) {
         try {
