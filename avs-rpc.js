@@ -20,7 +20,7 @@
       this[method] = (function(_this) {
         return function(id, args, cb) {
           var _ref;
-          console.log("rpc " + id + ": local " + method + " - asynchronous: " + _this.asynchronous);
+          console.log("rpc " + id + ": executing local " + method + " - asynchronous: " + _this.asynchronous);
           return (_ref = _this.local)[method].apply(_ref, __slice.call(args).concat([cb]));
         };
       })(this);
@@ -318,7 +318,7 @@
 
     ioRpc.prototype._request = function(msg) {
       var cb, message;
-      console.log("rpc " + msg.id + ": out " + this.tag + " " + (message = json.stringify(msg)));
+      this.log("rpc " + msg.id + ": out " + this.tag + " " + (message = json.stringify(msg)));
       cb = msg.cb || function() {};
       if (this.socket) {
         return this.socket.emit(this.tag, message, function() {

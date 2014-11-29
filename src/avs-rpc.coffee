@@ -7,7 +7,7 @@ json = require 'circular-json'
 class Local
   constructor: (@local, method, @asynchronous) ->
     @[method] = (id, args, cb) => 
-      console.log "rpc #{id}: local #{method} - asynchronous: #{@asynchronous}"
+      console.log "rpc #{id}: executing local #{method} - asynchronous: #{@asynchronous}"
       @local[method] args..., cb
 
 class Remote
