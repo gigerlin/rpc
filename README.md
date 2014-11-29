@@ -164,7 +164,7 @@ Returns a new remote object implementing the *methods*. The *methods* can be a s
 rpc.implement(local, methods)
 ```
 Publish the *methods* of the object *local*. Those *methods* are now available to the rpc object. 
-If *methods* is omitted all the methods of *local* are published.
+If *methods* is omitted all the methods of *local* are published, but the ones which begin with '_' (aka private methods).
 *methods* can be a single string or several strings (and even an array of strings).
 The *methods* are synchronous: the value they returned is sent back.
 

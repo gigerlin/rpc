@@ -5,7 +5,7 @@
   },
   "name": "avs-rpc",
   "description": "Elegant RPC for Node.js and browsers",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "homepage": "https://github.com/gigerlin/rpc",
   "contributors": [
     {
