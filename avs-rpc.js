@@ -33,14 +33,33 @@
   Remote = (function() {
     Remote.prototype.count = 0;
 
+    Remote.prototype.uid = (Math.random() + '').substring(2, 8);
+
     function Remote() {
-      var method, methods, rpc, _i, _len;
+      var method, methods, rpc, _fn, _i, _len;
       rpc = arguments[0], methods = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
-      this.rpc = rpc;
-      this.uid = (Math.random() + '').substring(2, 8);
+      _fn = (function(_this) {
+        return function(method) {
+          return _this[method] = function() {
+            var args, cb;
+            args = Array.prototype.slice.call(arguments);
+            if (typeof args[args.length - 1] === 'function') {
+              cb = args.pop();
+            }
+            if (rpc) {
+              return rpc._request({
+                method: method,
+                args: args,
+                cb: cb,
+                id: "" + this.uid + "-" + (++this.count)
+              });
+            }
+          };
+        };
+      })(this);
       for (_i = 0, _len = methods.length; _i < _len; _i++) {
         method = methods[_i];
-        this[method] = new Function("", "var cb, args = Array.prototype.slice.call(arguments); if (typeof args[args.length-1] === 'function') cb = args.pop(); this.rpc._request({method:'" + method + "', args:args, cb:cb, id:'" + this.uid + "-'+(++this.count)});");
+        _fn(method);
       }
     }
 

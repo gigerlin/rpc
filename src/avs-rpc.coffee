@@ -12,12 +12,14 @@ class Local
 
 class Remote
   count:0
-  constructor: (@rpc, methods...) ->
-    @uid = (Math.random() + '').substring 2, 8
+  uid:(Math.random() + '').substring 2, 8
+  constructor: (rpc, methods...) ->
     for method in methods
-      @[method] = new Function "", "var cb, args = Array.prototype.slice.call(arguments);
-        if (typeof args[args.length-1] === 'function') cb = args.pop();
-        this.rpc._request({method:'#{method}', args:args, cb:cb, id:'#{this.uid}-'+(++this.count)});"
+      ( (method) => @[method] = -> 
+        args = Array.prototype.slice.call arguments # transform arguments into array
+        cb = args.pop() if typeof args[args.length-1] is 'function' 
+        rpc._request method:method, args:args, cb:cb, id:"#{@uid}-#{++@count}" if rpc
+      ) method
 
 #
 # calls any number of arguments (string, number or object), plus a callback (callback is the last arg)
