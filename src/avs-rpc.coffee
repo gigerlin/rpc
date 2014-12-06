@@ -138,20 +138,20 @@ exports.ioRpc = class ioRpc extends Rpc # inspired from minimum-rpc
 
   _request: (msg) ->
     @log "rpc #{msg.id}: out #{@tag} #{message = json.stringify msg}"
-    cb = msg.cb or ->  
-    if @socket then @socket.emit @tag, message, -> cb.apply @, arguments
+    if @socket then @socket.emit @tag, message, -> msg.cb.apply @, arguments if msg.cb
 
   process: (message, ack_cb) ->
     msg = json.parse message
     @log "rpc #{msg.id}: in  #{@tag} #{message}"  
-    local = @locals[msg.method]
 
-    if local
+    if local = @locals[msg.method]
       try
         args = msg.args or []
         args.push => ack_cb.apply @, arguments
         if local.asynchronous then local[msg.method] msg.id, args else ack_cb local[msg.method] msg.id, args
       catch e
-        ack_cb null, "error in #{msg.method}: #{e}"
+        @log args = "error in #{msg.method}: #{e}"
+        ack_cb null, args
     else
-        ack_cb null, "error: method #{msg.method} is unknown"
+        @log args = "error: method #{msg.method} is unknown"
+        ack_cb null, args

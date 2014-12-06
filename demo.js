@@ -61,3 +61,7 @@ remote.getUserProfile('gilles', function(user, err){
   else
     console.log("name: " + user.name + " age: " + user.age);
 });
+
+remote.getUserList();
+
+

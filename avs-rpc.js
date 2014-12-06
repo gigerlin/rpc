@@ -336,12 +336,13 @@
     }
 
     ioRpc.prototype._request = function(msg) {
-      var cb, message;
+      var message;
       this.log("rpc " + msg.id + ": out " + this.tag + " " + (message = json.stringify(msg)));
-      cb = msg.cb || function() {};
       if (this.socket) {
         return this.socket.emit(this.tag, message, function() {
-          return cb.apply(this, arguments);
+          if (msg.cb) {
+            return msg.cb.apply(this, arguments);
+          }
         });
       }
     };
@@ -350,8 +351,7 @@
       var args, e, local, msg;
       msg = json.parse(message);
       this.log("rpc " + msg.id + ": in  " + this.tag + " " + message);
-      local = this.locals[msg.method];
-      if (local) {
+      if (local = this.locals[msg.method]) {
         try {
           args = msg.args || [];
           args.push((function(_this) {
@@ -366,10 +366,12 @@
           }
         } catch (_error) {
           e = _error;
-          return ack_cb(null, "error in " + msg.method + ": " + e);
+          this.log(args = "error in " + msg.method + ": " + e);
+          return ack_cb(null, args);
         }
       } else {
-        return ack_cb(null, "error: method " + msg.method + " is unknown");
+        this.log(args = "error: method " + msg.method + " is unknown");
+        return ack_cb(null, args);
       }
     };
 
