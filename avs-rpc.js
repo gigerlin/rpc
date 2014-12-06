@@ -15,13 +15,11 @@
 
   Local = (function() {
     function Local(local, method, asynchronous) {
-      this.local = local;
       this.asynchronous = asynchronous;
       this[method] = (function(_this) {
         return function(id, args, cb) {
-          var _ref;
           console.log("rpc " + id + ": executing local " + method + " - asynchronous: " + _this.asynchronous);
-          return (_ref = _this.local)[method].apply(_ref, __slice.call(args).concat([cb]));
+          return local[method].apply(local, __slice.call(args).concat([cb]));
         };
       })(this);
     }
@@ -31,13 +29,11 @@
   })();
 
   Remote = (function() {
-    Remote.prototype.count = 0;
-
-    Remote.prototype.uid = (Math.random() + '').substring(2, 8);
-
     function Remote() {
-      var method, methods, rpc, _fn, _i, _len;
+      var count, method, methods, rpc, uid, _fn, _i, _len;
       rpc = arguments[0], methods = 2 <= arguments.length ? __slice.call(arguments, 1) : [];
+      count = 0;
+      uid = (Math.random() + '').substring(2, 8);
       _fn = (function(_this) {
         return function(method) {
           return _this[method] = function() {
@@ -51,7 +47,7 @@
                 method: method,
                 args: args,
                 cb: cb,
-                id: "" + this.uid + "-" + (++this.count)
+                id: "" + uid + "-" + (++count)
               });
             }
           };

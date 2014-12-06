@@ -5,21 +5,20 @@
 json = require 'circular-json'
 
 class Local
-  constructor: (@local, method, @asynchronous) ->
+  constructor: (local, method, @asynchronous) ->
     @[method] = (id, args, cb) => 
       console.log "rpc #{id}: executing local #{method} - asynchronous: #{@asynchronous}"
-      @local[method] args..., cb
+      local[method] args..., cb
 
 class Remote
-  count:0
-  uid:(Math.random() + '').substring 2, 8
   constructor: (rpc, methods...) ->
-    for method in methods
-      ( (method) => @[method] = -> 
-        args = Array.prototype.slice.call arguments # transform arguments into array
-        cb = args.pop() if typeof args[args.length-1] is 'function' 
-        rpc._request method:method, args:args, cb:cb, id:"#{@uid}-#{++@count}" if rpc
-      ) method
+    count = 0
+    uid = (Math.random() + '').substring 2, 8
+    ( (method) => @[method] = -> 
+      args = Array.prototype.slice.call arguments # transform arguments into array
+      cb = args.pop() if typeof args[args.length-1] is 'function' 
+      rpc._request method:method, args:args, cb:cb, id:"#{uid}-#{++count}" if rpc
+    ) method for method in methods
 
 #
 # calls any number of arguments (string, number or object), plus a callback (callback is the last arg)
