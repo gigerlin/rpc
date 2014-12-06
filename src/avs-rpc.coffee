@@ -15,11 +15,9 @@ class Remote
   constructor: (@rpc, methods...) ->
     @uid = (Math.random() + '').substring 2, 8
     for method in methods
-      @[method] = new Function "", "var arg, args, cb, last, _i, _len; args = [];
-        for (_i = 0, _len = arguments.length; _i < _len; _i++) { args.push(arguments[_i]); }
-        last = arguments[arguments.length - 1];
-        if (typeof last === 'function') { cb = last; args.pop()}
-        return this.rpc._request({method:'#{method}', args:args, cb:cb, id:'#{this.uid}-'+(++this.count)});"
+      @[method] = new Function "", "var cb, args = Array.prototype.slice.call(arguments);
+        if (typeof args[args.length-1] === 'function') cb = args.pop();
+        this.rpc._request({method:'#{method}', args:args, cb:cb, id:'#{this.uid}-'+(++this.count)});"
 
 #
 # calls any number of arguments (string, number or object), plus a callback (callback is the last arg)
