@@ -153,6 +153,9 @@ sideB.implement(local);
 ### Error handling ###
 rpc callbacks receive two arguments: a return value and an error value *(result, error)*. If the error value is not undefined, it contains the error message and in this case the return value is undefined (see first example on top of the page).
 
+### socketcluster.io ###
+The avs-rpc package supports the SocketCluster library through the scRpc class (cf. [socketcluster.io](http://socketcluster.io/)). The only difference is in the error handling. SocketCluster expects a callback where the error is the first parameter: *(error, result)*
+
 ## APIs ##
 ### Main APIs ###
 ```
