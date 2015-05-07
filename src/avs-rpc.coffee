@@ -158,7 +158,7 @@ exports.ioRpc = class ioRpc extends Rpc # inspired from minimum-rpc
 #
 # class scRpc extends ioRpc
 #
-exports.scRpc = class scRpc extends scRpc
+exports.scRpc = class scRpc extends ioRpc
   process: (message, ack_cb) ->
     msg = json.parse message
     @log "rpc #{msg.id}: in  #{@tag} #{message}"

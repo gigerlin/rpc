@@ -6,7 +6,7 @@
  */
 
 (function() {
-  var Local, Remote, Rpc, angularRpc, ioRpc, json, wsRpc, xmlHttpRpc,
+  var Local, Remote, Rpc, angularRpc, ioRpc, json, scRpc, wsRpc, xmlHttpRpc,
     __slice = [].slice,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
@@ -374,5 +374,44 @@
     return ioRpc;
 
   })(Rpc);
+
+  exports.scRpc = scRpc = (function(_super) {
+    __extends(scRpc, _super);
+
+    function scRpc() {
+      return scRpc.__super__.constructor.apply(this, arguments);
+    }
+
+    scRpc.prototype.process = function(message, ack_cb) {
+      var args, e, local, msg;
+      msg = json.parse(message);
+      this.log("rpc " + msg.id + ": in  " + this.tag + " " + message);
+      if (local = this.locals[msg.method]) {
+        try {
+          args = msg.args || [];
+          args.push((function(_this) {
+            return function() {
+              return ack_cb.apply(_this, arguments);
+            };
+          })(this));
+          if (local.asynchronous) {
+            return local[msg.method](msg.id, args);
+          } else {
+            return ack_cb(null, local[msg.method](msg.id, args));
+          }
+        } catch (_error) {
+          e = _error;
+          this.log(args = "error in " + msg.method + ": " + e);
+          return ack_cb(args);
+        }
+      } else {
+        this.log(args = "error: method " + msg.method + " is unknown");
+        return ack_cb(args);
+      }
+    };
+
+    return scRpc;
+
+  })(ioRpc);
 
 }).call(this);
