@@ -154,3 +154,23 @@ exports.ioRpc = class ioRpc extends Rpc # inspired from minimum-rpc
     else
         @log args = "error: method #{msg.method} is unknown"
         ack_cb null, args
+
+#
+# class scRpc extends ioRpc
+#
+exports.scRpc = class scRpc extends scRpc
+  process: (message, ack_cb) ->
+    msg = json.parse message
+    @log "rpc #{msg.id}: in  #{@tag} #{message}"
+
+    if local = @locals[msg.method]
+      try
+        args = msg.args or []
+        args.push => ack_cb.apply @, arguments
+        if local.asynchronous then local[msg.method] msg.id, args else ack_cb null, local[msg.method] msg.id, args
+      catch e
+        @log args = "error in #{msg.method}: #{e}"
+        ack_cb args
+    else
+        @log args = "error: method #{msg.method} is unknown"
+        ack_cb args
